@@ -34,3 +34,6 @@
 [submodule "ext/lvgl/lvgl"]
 	path = ext/lvgl/lvgl
 	url = https://github.com/modm-ext/lvgl-partial.git
+[submodule "ext/nanopb/nanopb"]
+	path = ext/nanopb/nanopb
+	url = https://github.com/modm-ext/nanopb-partial.git
