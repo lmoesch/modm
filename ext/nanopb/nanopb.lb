@@ -9,6 +9,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # -----------------------------------------------------------------------------
+import os
+import subprocess
+import tempfile
+
+from pathlib import Path
 
 def init(module):
     module.name = ":nanopb"
@@ -19,8 +24,9 @@ Nanopb is a small code-size Protocol Buffers implementation in ansi C. It is esp
 for use in microcontrollers, but fits any memory restricted system.
 """
 
-def prepare(repo, options):
-    repo.add_modules("protocol.lb")
+def prepare(module, options):
+    module.add_option(
+    PathOption(name="protofile.path", default="", empty_ok=False, absolute=True, description=""))
 
     return True
 
@@ -36,6 +42,28 @@ def build(env):
     env.copy("nanopb/pb_encode.h", dest="pb_encode.h")
     env.copy("nanopb/pb.h", dest="pb.h")
 
+def build_protofile(env):
+    tmpdir = tempfile.mkdtemp(dir=repopath("."))
+
+    protoc = repopath("nanopb/generator/protoc")
+    protofile = localpath(env[":protofile.path"])
+
+    cmd = ["python", protoc, f"--nanopb_out={tmpdir}", f"--proto_path={os.path.dirname(protofile)}", protofile]
+    subprocess.call(cmd)
+
+    for filename in os.listdir(tmpdir):
+        path = os.path.join(tmpdir, filename)
+
+        with open(path) as f:
+            content=f.read().replace('<pb.h>', '"nanopb/pb.h"')
+
+        with open(path, "w") as f:
+            f.write(content)
+
+        env.copy(path, dest=filename)
+        os.remove(path)
+
+    os.rmdir(tmpdir)
 
 
     
