@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2021, Lucas Moesch
+#
+# This file is part of the modm project.
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# -----------------------------------------------------------------------------
+
+def init(module):
+    module.name = ":nanopb"
+    module.description = """
+# Nanopb - Protocol Buffers for Embedded Systems
+
+Nanopb is a small code-size Protocol Buffers implementation in ansi C. It is especially suitable 
+for use in microcontrollers, but fits any memory restricted system.
+"""
+
+def prepare(repo, options):
+    repo.add_modules("protocol.lb")
+
+    return True
+
+def build(env):
+    env.collect(":build:path.include", "modm/ext/nanopb")
+    env.outbasepath = "modm/ext/nanopb"
+
+    env.copy("nanopb/pb_common.c", dest="pb_common.c")
+    env.copy("nanopb/pb_common.h", dest="pb_common.h")
+    env.copy("nanopb/pb_decode.c", dest="pb_decode.c")
+    env.copy("nanopb/pb_decode.h", dest="pb_decode.h")
+    env.copy("nanopb/pb_encode.c", dest="pb_encode.c")
+    env.copy("nanopb/pb_encode.h", dest="pb_encode.h")
+    env.copy("nanopb/pb.h", dest="pb.h")
+
+
+
+    
