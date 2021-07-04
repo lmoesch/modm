@@ -26,7 +26,7 @@ for use in microcontrollers, but fits any memory restricted system.
 
 def prepare(module, options):
     module.add_option(
-    PathOption(name="protofile.path", default="", empty_ok=False, absolute=True, description=""))
+    PathOption(name="protofile.path", empty_ok=False, absolute=True, description=""))
 
     return True
 
@@ -42,26 +42,31 @@ def build(env):
     env.copy("nanopb/pb_encode.h", dest="pb_encode.h")
     env.copy("nanopb/pb.h", dest="pb.h")
 
+    build_protofile(env)
+
 def build_protofile(env):
-    tmpdir = tempfile.mkdtemp(dir=repopath("."))
+    tmpdir = tempfile.mkdtemp(dir=repopath("ext/nanopb"))
 
-    protoc = repopath("nanopb/generator/protoc")
-    protofile = localpath(env[":protofile.path"])
+    try:
+        protoc = repopath("ext/nanopb/nanopb/generator/protoc")
+        protofile = localpath(env[":nanopb:protofile.path"])
 
-    cmd = ["python", protoc, f"--nanopb_out={tmpdir}", f"--proto_path={os.path.dirname(protofile)}", protofile]
-    subprocess.call(cmd)
+        cmd = ["python", protoc, f"--nanopb_out={tmpdir}", f"--proto_path={os.path.dirname(protofile)}", protofile]
+        subprocess.call(cmd)
 
-    for filename in os.listdir(tmpdir):
-        path = os.path.join(tmpdir, filename)
+        for filename in os.listdir(tmpdir):
+            path = os.path.join(tmpdir, filename)
 
-        with open(path) as f:
-            content=f.read().replace('<pb.h>', '"nanopb/pb.h"')
+            with open(path) as f:
+                content=f.read().replace('<pb.h>', '"nanopb/pb.h"')
 
-        with open(path, "w") as f:
-            f.write(content)
+            with open(path, "w") as f:
+                f.write(content)
 
-        env.copy(path, dest=filename)
-        os.remove(path)
+            env.copy(path, dest=filename)
+            os.remove(path)
+    except Exception as e:
+        print(e)
 
     os.rmdir(tmpdir)
 
