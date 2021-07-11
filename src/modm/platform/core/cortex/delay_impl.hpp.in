@@ -32,10 +32,7 @@ namespace platform
 extern uint16_t delay_ns_per_loop;
 extern uint16_t delay_fcpu_MHz;
 
-constexpr uint8_t delay_fcpu_MHz_shift{3};
-// 400 MHz is the maximum for binary scaling
-static_assert(400 * (1ul << delay_fcpu_MHz_shift) < 65535);
-
+constexpr uint8_t delay_fcpu_MHz_shift({{us_shift}});
 constexpr uint16_t computeDelayMhz(uint32_t hz)
 { return std::round(hz / 1'000'000.f * (1ul << delay_fcpu_MHz_shift)); }
 }
@@ -51,35 +48,17 @@ void delay_ns(uint32_t ns)
 
 
 void delay_us(uint32_t us);
-inline void delay_ms(uint32_t ms) { delay_us(ms * 1000); }
-
-// ----------------------------------------------------------------------------
-template< class Rep >
-void
-delay(std::chrono::duration<Rep, std::nano> ns)
+inline void delay_ms(uint32_t ms)
 {
-	const auto ns_{std::chrono::duration_cast<std::chrono::nanoseconds>(ns)};
-%% if with_assert
-	modm_assert_continue_fail_debug(0 <= ns_.count() and ns_.count() <= 1'000'000,
-		"delay.ns", "modm::delay(ns) can only delay a (positive) maximum of ~1 millisecond!");
-%% endif
-	delay_ns(ns_.count());
-}
-
-template< class Rep >
-void
-delay(std::chrono::duration<Rep, std::micro> us)
-{
-	const auto us_{std::chrono::duration_cast<std::chrono::microseconds>(us)};
-	delay_us(us_.count());
-}
-
-template< class Rep >
-void
-delay(std::chrono::duration<Rep, std::milli> ms)
-{
-	const auto us{std::chrono::duration_cast<std::chrono::microseconds>(ms)};
-	delay_us(us.count());
+    while(1)
+    {
+        if (ms <= 1000) {
+            delay_us(ms * 1000);
+            break;
+        }
+        delay_us(1'000'000);
+        ms -= 1000;
+    }
 }
 
 }
