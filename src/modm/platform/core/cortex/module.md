@@ -14,27 +14,37 @@ on that module directly instead of this one.
 After reset, the ARM Cortex-M hardware jumps to the `Reset_Handler()`, which is
 implemented as follows:
 
-1. The main stack pointer (MSP) is initialized by hardware.
-2. Call `__modm_initialize_platform()` to initialize the device  hardware.
-3. Copy data from internal flash to internal RAM.
-4. Zero sections in internal RAM.
-5. Initialize ARM Cortex-M core: enable FPU and relocate vector table.
-6. Execute shared hardware initialization functions.
-7. Copy data from internal flash to *external* RAM.
-8. Zero sections in *external* RAM.
-9. Initialize heap via `__modm_initialize_memory()` (implemented by the
-   `modm:platform:heap` module).
-10. Call static constructors.
-11. Call `main()` application entry point.
-12. If `main()` returns, assert on `main.exit` (only in debug profile).
-13. Reboot if assertion returns.
+1. The main stack pointer (MSP) is initialized by software.
+2. Call `__modm_initialize_platform()` to initialize the device hardware.
+3. Call `modm_initialize_platform()` to initialize the custom device hardware.
+4. Copy data to internal RAM.
+5. Zero sections in internal RAM.
+6. Initialize ARM Cortex-M core: enable FPU and relocate vector table.
+7. Execute shared hardware initialization functions.
+8. Copy data to *external* RAM.
+9. Zero sections in *external* RAM.
+10. Initialize heap via `__modm_initialize_memory()` (implemented by the
+    `modm:platform:heap` module).
+11. Call static constructors.
+12. Call `main()` application entry point.
+13. If `main()` returns, assert on `main.exit` (only in debug profile).
+14. Reboot if assertion returns.
 
 
 ### Device Initialization
 
 The `__modm_initialize_platform()` function is called *directly* after reset,
 and its purpose is to initialize the device specific hardware, such as enable
-internal memories or disable the hardware watchdog timer.
+internal memories or disable the hardware watchdog timer. You can provide
+additional application-specific initialization by overwriting the weakly linked
+`modm_initialize_platform()` function:
+
+```c
+extern "C" void modm_initialize_platform()
+{
+    // Configure power settings before accessing SRAM
+}
+```
 
 It's important to understand that because the `.data` section has not yet been
 copied and the `.bss` section has not yet been zeroed, **there exists no valid C
@@ -47,8 +57,7 @@ stack until you've enabled its backing memory. The `Reset_Handler` therefore
 calls this function in Assembly without accessing the stack.
 
 It is strongly recommended to only read/write registers in this function, and
-perhaps even write this function in Assembly if deemed necessary. *Do not
-initialize the device clock, leave the default clock undisturbed*!
+perhaps even write this function in Assembly if deemed necessary.
 
 
 ### Additional Initialization
@@ -119,40 +128,51 @@ linkerscript, depending on the memory architecture of the target chosen.
 The following macros are available:
 
 - `copyright()`: Copyright notice.
+
 - `prefix()`: Contains `MEMORY` sections, output format and entry symbol and
-              stack size definitions
+  stack size definitions.
 
-- `section_vector_rom(memory)`: place the read-only vector table at the
-                                beginning of ROM `memory`.
-- `section_vector_ram(memory)`: place the volatile vector table into RAM
-                                `memory`. You must satisfy alignment
-                                requirements externally.
+- `section_vector_rom(memory)`: places the read-only vector table into ROM
+  `memory`.
 
-- `section(memory, name)`: place section `.{name}` into `memory`.
+- `section_vector_ram(memory, table_copy)`: places the volatile vector table
+  into RAM `memory` and add it to the copy table. You must satisfy alignment
+  requirements externally.
 
-- `section_stack(memory, start=None)`: place the main stack into `memory` after
-                                       moving the location counter to `start`.
-- `section_heap(memory, name, section=None)`: Fill up remaining space in
-                                              `memory` with heap section
-                                              `.{name}` and add to `section`.
+- `section_load(memory, table_copy, sections)`: place each `.{section}` in
+  `sections` into `memory` and add them the copy table.
+
+- `section_stack(memory, start=None, suffix="")`: place the main stack into
+  `memory` after moving the location counter to `start`. `suffix` can be used
+  to add multiple `.stack{suffix}` sections.
+
+- `section_heap(memory, name, placement=None, sections=[])`: Add the noload
+  `sections` to `memory` and fill up remaining space in `memory` with heap
+  section `.{name}`. Argument `placement` can be used to place the section into
+  a larger continuous section of which `memory` is just a subsection. The
+  `__{name}_end` will be the maximum of the location counter and the `memory`
+  section end address, so that previous sections will push this section back.
+
+- `all_heap_sections(table_copy, table_zero, table_heap, props={})`: places the
+  heap sections as described by `cont_ram_regions` of the `linkerscript` query.
+  This also adds bss and noinit sections into each region. The `props` key can
+  be used to override the default `0x001f` memory properties.
 
 - `section_rom(memory)`: place all read-only sections (`.text`, `.rodata` etc)
-                         into `memory`.
-- `section_ram(memory, rom)`: place all volatile sections (`.data`, `.bss` etc)
--                             into `memory` and load from `rom`.
+  into `memory`.
 
-- `section_table_zero(memory, sections=[])`: place the zeroing table (`.bss`
-                                             plus `sections`) into `memory`.
-- `section_table_copy(memory, sections=[])`: place the copying table (`.data`,
-                                             `.fastdata`, `.vector_ram` plus
-                                             `sections`) into `memory`.
-- `section_table_extern(memory)`: place the zeroing and copying tables for
-                                  external memories into `memory`.
-- `section_table_heap(memory, sections)`: place heap tables containing
-                                          `sections` into `memory`.
+- `section_ram(memory, rom, table_copy, table_zero,
+  sections_data=[], sections_bss=[], sections_noinit=[])`: place all volatile
+  sections (`.data`, `.bss` etc) into `memory` and load from `rom`. Additional
+  sections can be added.
+
+- `section_tables(memory, copy, zero, heap)`: place the zero, copy and heap
+  table into `memory`.
 
 - `section_rom_start(memory)`: place at ROM start.
+
 - `section_rom_end(memory)`: place at ROM end.
+
 - `section_debug()`: place debug sections at the very end.
 
 Please consult the `modm:platform:core` documentation for the target-specific
@@ -162,21 +182,18 @@ target's memory architecture poses.
 
 ### Section `.fastdata`
 
-For devices without data cache place the `.fastdata` section into the fastest
-RAM. Please note that the `.fastdata` section may need to be placed into RAM
-that is only accessable to the Cortex-M core, which can cause issues with DMA
-access. However, the `.fastdata` sections is not required to be DMA-able, and in
-such a case the developer needs to place the data into the generic `.data`
-section or choose a device with a DMA-able fast RAM.
+The `.fastdata` section is placed into a device specific data cache or into the
+fastest RAM. Please note that the `.fastdata` section may be placed into RAM
+that is only accessable to the Cortex-M core (via the Data-Bus), which can cause
+issues with DMA access. However, the `.fastdata` section is not required to be
+DMA-able and in such a case the developer needs to place the data into the
+generic `.data` section or choose a device with a DMA-able fast RAM.
 
 
 ### Section `.fastcode`
 
-For devices without an instruction cache or without a fast RAM connected to the
-I-bus, place `.fastcode` into ROM, which usually has a device-specific ROM
-cache. Please note that using a device with a dedicated instruction cache RAM
-yields much more predictable performance than executing from ROM, even with a
-ROM cache.
+The `.fastcode` section is placed into a device specific instruction cache (via
+I-Code bus) or into the fastest executable RAM (via S-Bus).
 
 From the Cortex-M3 Technical Reference Manual:
 
@@ -236,36 +253,36 @@ heap section:
 
 ```python
 linkerscript_sections = """
-.sdramdata :
+.data_sdram :
 {
-    __sdramdata_load = LOADADDR (.sdramdata);   /* address in FLASH */
-    __sdramdata_start = .;                      /* address in RAM */
+    __data_sdram_load = LOADADDR(.data_sdram);
+    __data_sdram_start = .;
 
-    KEEP(*(.sdramdata))
+    *(.data_sdram)
 
     . = ALIGN(4);
-    __sdramdata_end = .;
+    __data_sdram_end = .;
 } >SDRAM AT >FLASH
 
-.heap_extern (NOLOAD) : ALIGN(4)
+.heap_sdram (NOLOAD) :
 {
-    __heap_extern_start = .;
+    __heap_sdram_start = .;
     . = ORIGIN(SDRAM) + LENGTH(SDRAM);
-    __heap_extern_end = .;
+    __heap_sdram_end = .;
 } >SDRAM
 """
 env.collect(":platform:cortex-m:linkerscript.sections", linkerscript_sections)
 ```
 
 Next, add the sections that need to be copied from ROM to RAM, here the contents
-of the `.sdramdata` section is stored in the internal `FLASH` memory and needs
+of the `.data_sdram` section is stored in the internal `FLASH` memory and needs
 to be copied into SDRAM during the startup:
 
 ```python
 linkerscript_copy = """
-LONG(__sdramdata_load)
-LONG(__sdramdata_start)
-LONG(__sdramdata_end)
+LONG(__data_sdram_load)
+LONG(__data_sdram_start)
+LONG(__data_sdram_end)
 """
 env.collect(":platform:cortex-m:linkerscript.table_extern.copy", linkerscript_copy)
 ```
@@ -277,8 +294,8 @@ for this memory, see `modm:architecture:memory` for the trait definitions:
 ```python
 linkerscript_heap = """
 LONG(0x801f)
-LONG(__heap_extern_start)
-LONG(__heap_extern_end)
+LONG(__heap_sdram_start)
+LONG(__heap_sdram_end)
 """
 env.collect(":platform:cortex-m:linkerscript.table_extern.heap", linkerscript_heap)
 ```
@@ -300,8 +317,6 @@ depends on the configured CPU frequency:
 - nanosecond delay is implemented as a tight loop with a minimum delay of <20
   cycles, a resolution of 1-4 cycles and a maximum delay of 32-bit cycles.
 - microsecond delay has a maximum delay of 32-bit cycles.
-- millisecond delay is implemented via `modm::delay_us(ms * 1000)`, thus also
-  has a maximum delay of 32-bit cycles.
 
 
 ## Compiler Options

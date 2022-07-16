@@ -31,7 +31,11 @@ Itm::initialize()
 	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
 %% if target.platform == "stm32"
 	// Enable the Trace SWO output
+%% if target.family == "h7"
+	DBGMCU->CR |= DBGMCU_CR_DBG_TRACECKEN;
+%% else
 	DBGMCU->CR |= DBGMCU_CR_TRACE_IOEN;
+%% endif
 %% endif
 }
 
@@ -57,7 +61,11 @@ Itm::enable(uint8_t prescaler)
 	ITM->TPR  = 0;
 
 	// Trace Control Register
+%% if target.platform == "stm32" and target.family == "l5"
+	ITM->TCR  = (1 << ITM_TCR_TRACEBUSID_Pos) |
+%% else
 	ITM->TCR  = (1 << ITM_TCR_TraceBusID_Pos) |
+%% endif
 				(1 << ITM_TCR_DWTENA_Pos)     |
 				(1 << ITM_TCR_ITMENA_Pos);
 
@@ -89,7 +97,7 @@ Itm::write(uint8_t data)
 	update();
 	return txBuffer.push(data);
 %% else
-	return write_itm(data);
+	return write_itm(data << 24);
 %% endif
 }
 

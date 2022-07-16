@@ -116,8 +116,6 @@ public:
 		ForceInactive = TIM_CCMR1_OC1M_2,
 		/// Output is forced high
 		ForceActive = TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1M_0,
-		ForceLow  [[deprecated("Use ForceInactive instead.")]] = ForceInactive,
-		ForceHigh [[deprecated("Use ForceActive instead.")]]   = ForceActive,
 
 		/**
 		 * PWM Mode 1.
@@ -234,7 +232,7 @@ public:
 	/**
 	 * TODO Description
 	 */
-	void
+	static void
 	configureInputChannel(uint32_t channel, InputCaptureMapping input,
 			InputCapturePrescaler prescaler, InputCapturePolarity polarity, uint8_t filter);
 
@@ -256,7 +254,7 @@ public:
 	 * @param	channel	[1..4]
 	 * @param	value	Compare value
 	 */
-	static inline void
+	static void
 	setCompareValue(uint32_t channel, uint16_t value);
 
 	/**
@@ -265,7 +263,7 @@ public:
 	 * @param	channel	[1..4]
 	 * @return	Current compare value
 	 */
-	static inline uint16_t
+	static uint16_t
 	getCompareValue(uint32_t channel);
 };
 
