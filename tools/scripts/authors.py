@@ -14,11 +14,13 @@
 import subprocess, locale
 from collections import defaultdict
 import argparse
+import re
 
 author_handles = {
     "Amar": "fb39ca4",
     "Amarok McLion": "amarokmclion",
     "Andre Gilerson": "AndreGilerson",
+    "Andrey Kunitsyn": "andryblack",
     "Antal Szabó": "Sh4rK",
     "Arjun Sarin": None,
     "Benjamin Carrick": "nesos",
@@ -35,9 +37,12 @@ author_handles = {
     "Felix Petriconi": "FelixPetriconi",
     "Georgi Grinshpun": "georgi-g",
     "Hans Schily": "RzwoDzwo",
+    "Henrik Hose": "hshose",
     "Jacob Schultz Andersen": "jasa",
+    "Jakob Riepler": "XDjackieXD",
     "Jeff McBride": "mcbridejc",
     "Julia Gutheil": None,
+    "Jonas Kazem Andersen": "JKazem",
     "Jörg Hoffmann": "19joho66",
     "Kaelin Laundry": "WasabiFan",
     "Kevin Läufer": "ekiwi",
@@ -54,18 +59,27 @@ author_handles = {
     "Nicolai Bruhn": "nicoBruhn",
     "Niklas Hauser": "salkinium",
     "Niklas Meyer": "Zweistein885",
+    "Nikolay Semenov": "cocasema",
+    "Odin Holmes": "odinthenerd",
     "Patrick Servello": "patrick--",
     "Pavel Pletenev": "ASMfreaK",
     "Philipp Graf": "luxarf",
     "Raphael Lehmann": "rleh",
+    "Rasmus Kleist": "rasmuskleist",
+    "Sarah Vilete": "sarahvilete",
     "Sascha Schade": "strongly-typed",
     "Sebastian Birke": "se-bi",
+    "Sebastian Tibor Bakonyvari": "twast92",
     "Sergiy Yevtushenko": "siy",
+    "Steven Macías": "StevenMacias",
     "Tarik TIRE": "7Kronos",
     "Thomas Figueroa": "OperativeF",
+    "Thomas Rush": "tarush53",
     "Thomas Sommer": "TomSaw",
     "Thorsten Lajewski": "TheTh0r",
     "Tomasz Chyrowicz": "tomchy",
+    "Tomasz Wasilczyk": "twasilczyk",
+    "Valeriy Osipov": "SgtPepperFTW",
     "Vivien Henry": "lukh",
     "Zawadniak Pedro": "PDR5",
     "Álan Crístoffer": "acristoffers",
@@ -84,6 +98,20 @@ def get_author_log(since = None, until = None, handles = False, count = False):
     shortlog = defaultdict(int)
     for line in output.splitlines():
         commits, author = line.split("\t")
+        shortlog[author] += int(commits)
+
+    # get co-authors of the commits
+    co_author_command = "git log --format='%(trailers:key=Co-authored-by)'"
+    if since is not None:
+        co_author_command += " --since=\"{}\"".format(since)
+    if until is not None:
+        co_author_command += " --until=\"{}\"".format(until)
+    co_author_command += " | grep -v '^$' | sed -e 's/Co-authored-by: /\t/g' | sort | uniq -c"
+    output = subprocess.Popen(co_author_command, shell=True, stdout=subprocess.PIPE)\
+            .stdout.read().decode(locale.getpreferredencoding())
+    for line in output.splitlines():
+        commits, author = line.split("\t")
+        author = re.findall(r"(?P<name>[^<>]+) <.+>", author)[0]
         shortlog[author] += int(commits)
 
     # convert to list of tuples for sorting

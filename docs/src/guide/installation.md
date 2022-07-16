@@ -51,7 +51,7 @@ pip3 install gdbgui
     Add the following line to the end of your `~/.bashrc` file:
 
     ```sh
-    export PATH="~/.local/bin:$PATH"
+    export PATH="$HOME/.local/bin:$PATH"
     ```
 
 !!! warning "Ubuntu ≤ 19.10"
@@ -70,7 +70,7 @@ We use [Doxypress][doxypress_binaries] to generate the API documentation:
 
 ```sh
 sudo mkdir /opt/doxypress
-wget -O- https://download.copperspice.com/doxypress/binary/doxypress-1.4.1-ubuntu20.04-x64.tar.bz2 | sudo tar xj -C /opt/doxypress
+wget -O- https://github.com/copperspice/doxypress/releases/download/dp-1.4.2/doxypress-1.4.2-ubuntu20.04-x64.tar.bz2 | sudo tar xj -C /opt/doxypress
 ```
 
 Add the directory to your `PATH` variable in `~/.bashrc`:
@@ -85,13 +85,13 @@ export PATH="/opt/doxypress:$PATH"
 Install the [pre-built ARM toolchain][gcc-arm-toolchain]:
 
 ```sh
-wget -O- https://developer.arm.com/-/media/Files/downloads/gnu-rm/10-2020q4/gcc-arm-none-eabi-10-2020-q4-major-x86_64-linux.tar.bz2 | sudo tar xj -C /opt/
+wget -O- https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 | sudo tar xj -C /opt/
 ```
 
 Add it to your `PATH` variable in `~/.bashrc`:
 
 ```sh
-export PATH="/opt/gcc-arm-none-eabi-10-2020-q4-major/bin:$PATH"
+export PATH="/opt/gcc-arm-none-eabi-10.3-2021.10/bin:$PATH"
 ```
 
 !!! warning "Ubuntus 'gcc-arm-none-eabi' package"
@@ -115,13 +115,17 @@ sudo apt install openocd
 Download and extract the [pre-built AVR toolchain][modm-avr-gcc]:
 
 ```sh
-wget -O- https://github.com/modm-io/avr-gcc/releases/download/v10.2.0/avr-gcc.tar.bz2 | sudo tar xj -C /opt
+wget -O- https://github.com/modm-io/avr-gcc/releases/download/v11.2.0/modm-avr-gcc.tar.bz2 | sudo tar xj -C /opt
 ```
 
-Add the `bin` directories to your `PATH` variable in `~/.bashrc`:
+!!! warning "AVR toolchain install directory"
+    It is unfortunately not possible to install the AVR toolchain into a
+    directory other than directly into `/opt`.
+
+Add the `bin` directory to your `PATH` variable in `~/.bashrc`:
 
 ```sh
-export PATH="/opt/avr-gcc/avr-gcc/bin:/opt/avr-gcc/avr-binutils/bin:$PATH"
+export PATH="/opt/avr-gcc/bin:$PATH"
 ```
 
 Install the AvrDude tool:

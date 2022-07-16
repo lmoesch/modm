@@ -283,6 +283,18 @@ scons program-remote profile={debug|release} [host={ip or hostname}] [firmware={
 
 Writes the executable onto your target connected to a remote OpenOCD process
 running on your own computer (host=`localhost`) or somewhere else.
+(\* *only ARM Cortex-M targets*)
+
+
+#### scons openocd
+
+```
+scons openocd
+```
+
+Starts an OpenOCD process to attach a remote debugger to (e.g. with
+`scons program-remote` or `scons debug-remote`).
+(\* *only ARM Cortex-M targets*)
 
 
 #### scons run
@@ -342,7 +354,7 @@ Launches GDB for post-mortem debugging with the firmware identified by the
 See the `modm:platform:fault` module for details how to receive the coredump data.
 
 
-#### scons program-remote
+#### scons debug-remote
 
 ```
 scons debug-remote profile={debug|release} ui={tui|web} [host={ip or hostname}] [firmware={hash or file}]
@@ -426,7 +438,7 @@ simple telnet client. Disconnect with Ctrl+D.
  $ scons log-rtt
 ╭───OpenOCD───> Real Time Transfer
 ╰─────RTT────── stm32f103rbt6
-Info : rtt: Searching for control block 'modm.rtt.modm'
+Info : rtt: Searching for control block 'SEGGER RTT'
 Info : rtt: Control block found at 0x20000008
 loop: 57
 loop: 58
@@ -543,6 +555,23 @@ Creates a Intel-hex file of your executable.
  $ scons hex
 Hex File······· {debug|release}/blink.hex
 ```
+
+
+#### scons uf2
+
+```
+scons uf2 profile={debug|release} [firmware={hash or file}]
+```
+
+Creates a UF2 compatible file of your executable. UF2 is a
+[bootloader by Microsoft](https://github.com/microsoft/uf2).
+
+```
+ $ scons uf2
+UF2 File······· {debug|release}/blink.uf2
+```
+
+(\* *only ARM Cortex-M targets*)
 
 
 #### scons artifact

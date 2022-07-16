@@ -24,7 +24,7 @@ from os.path import normpath
 
 # Check for miminum required lbuild version
 import lbuild
-min_lbuild_version = "1.17.0"
+min_lbuild_version = "1.21.4"
 if StrictVersion(getattr(lbuild, "__version__", "0.1.0")) < StrictVersion(min_lbuild_version):
     print("modm requires at least lbuild v{}, please upgrade!\n"
           "    pip3 install -U lbuild".format(min_lbuild_version))
@@ -83,19 +83,24 @@ class DevicesCache(dict):
         # roughly filter to supported devices
         supported = ["stm32f0", "stm32f1", "stm32f2", "stm32f3", "stm32f4", "stm32f7",
                      "stm32g0", "stm32g4",
-                     "stm32l0", "stm32l1", "stm32l4",
+                     "stm32h7",
+                     "stm32l0", "stm32l1", "stm32l4", "stm32l5",
                      "at90", "attiny", "atmega",
-                     "samd21",
+                     "samd21", "samg55", "samv70",
+                     "rp2040",
                      "hosted"]
         device_file_names = [dfn for dfn in device_file_names if any(s in dfn for s in supported)]
+        # These files are ignored due to various issues
+        ignored = [d for d in Path(repopath("test/all/ignored.txt")).read_text().strip().splitlines() if "#" not in d]
 
         # Parse the files and build the :target enumeration
         parser = modm_devices.parser.DeviceParser()
         for device_file_name in device_file_names:
             device_file = parser.parse(device_file_name)
             for device in device_file.get_devices():
-                self[device.partname] = device
-                mapping[device.partname] = device_file_name
+                if not any(device.partname.startswith(i) for i in ignored):
+                    self[device.partname] = device
+                    mapping[device.partname] = device_file_name
 
         return mapping
 
@@ -164,15 +169,21 @@ class DevicesCache(dict):
 class TargetOption(EnumerationOption):
     """
     Allows the target string to be longer than required by selecting the best
-    fitting target string
+    fitting target string and adds the revision to the device identifier.
     """
+
     def as_enumeration(self, value):
-        targets = self._enumeration.keys()
+        revision = "" # split revision from the input value
+        if "/rev" in value: value, revision = value.split("/rev");
         target = self._obj_to_str(value)
+        targets = self._enumeration.keys()
+
         # check if input string is part of keys OR longer
-        while(len(target) > len("attiny4-")):
+        while(len(target) >= len("rp2040")):
             if target in targets:
-                return self._enumeration[target]
+                target = self._enumeration[target]
+                target._identifier.set("revision", revision.lower())
+                return target
             else:
                 # cut off last character and try again
                 target = target[:-1]
@@ -213,25 +224,19 @@ def init(repo):
     repo.add_ignore_patterns("*/*.lb", "*/board.xml")
 
     # Add the board configuration files as their module name aliases
-    for config in Path(repopath("src/modm/board")).glob("*/board.xml"):
-        name = re.search(r"<module>modm:board:(.*?)</module>", config.read_text()).group(1)
-        if (config.parent / "module.md").exists():
-            description = FileReader(str(config.parent / "module.md"))
+    for module in Path(repopath("src/modm/board")).glob("*/module.lb"):
+        module_text = module.read_text()
+        name = re.search(r"\.name += +\".*?:board:(.*?)\"", module_text).group(1)
+        if (module.parent / "module.md").exists():
+            description = FileReader(str(module.parent / "module.md"))
         else:
-            description = re.search(r'\.description += +(""".*?"""|".*?")',
-                            (config.parent / "module.lb").read_text(), flags=re.S|re.M)
+            description = re.search(r'description += +(""".*?"""|".*?")',
+                                    module_text, flags=re.S|re.M)
             description = description.group(1).strip('"\\') if description else None
-        repo.add_configuration(name, config, description)
-
-    # Backwards compatible move, remove this in 2022.
-    repo.add_alias(Alias(name="blue-pill", destination=":blue-pill-f103",
-                         description="Renamed for clarity."))
-    repo.add_alias(Alias(name="black-pill", destination=":black-pill-f103",
-                         description="Renamed for clarity."))
-    repo.add_alias(Alias(name="mini-f401", destination=":black-pill-f401",
-                         description="Renamed for clarity."))
-    repo.add_alias(Alias(name="mini-f411", destination=":black-pill-f411",
-                         description="Renamed for clarity."))
+        versions = re.search(r"#+ +[Rr]evisions? += +\[(.*)\]", module_text)
+        versions = versions.group(1).split(",") if versions is not None else [""]
+        config = {v.strip(): (module.parent / "board.xml") for v in versions}
+        repo.add_configuration(Configuration(name, description, config, versions[0].strip()))
 
     # Add Jinja2 filters commonly used in this repository
     if 'Windows' in platform.platform():
@@ -261,8 +266,12 @@ def init(repo):
 
     repo.add_option(
         TargetOption(name="target",
-                     description="Meta-HAL target device",
+                     description=descr_target,
                      enumeration=devices))
+
+    # Invisible option guarding the Fiber API until it is ready
+    repo.add_option(BooleanOption(name="__fibers", default=False,
+                                  description="Enable unstable fiber API."))
 
 def prepare(repo, options):
     repo.add_modules_recursive("ext", modulefile="*.lb")
@@ -271,3 +280,15 @@ def prepare(repo, options):
 
 def build(env):
     env.collect(":build:path.include", "modm/src")
+
+
+# ============================ Option Descriptions ============================
+descr_target = """# Device identifier
+
+This is the long string written on your microcontroller that uniquely identifies
+the target device for which to generate the modm HAL.
+
+You can optionally add the hardware revision to the identifier string by
+appending `/revX` where X is the revision. This can help modm apply workarounds
+for specific hardware bugs as recommended by the errata sheet.
+"""

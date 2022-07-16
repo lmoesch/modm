@@ -18,6 +18,8 @@
 
 namespace modm::platform
 {
+/// @ingroup modm_platform_gclk
+/// @{
 
 enum class
 ClockSource : uint32_t
@@ -35,7 +37,9 @@ ClockGenerator : uint32_t
 	Internal8M = 3,
 };
 
-enum class ClockPeripheral : uint32_t {
+enum class
+ClockPeripheral : uint32_t
+{
 	Dfll48 = GCLK_CLKCTRL_ID_DFLL48_Val,
 	Fdpll = GCLK_CLKCTRL_ID_FDPLL_Val,
 	Fdpll32K = GCLK_CLKCTRL_ID_FDPLL32K_Val,
@@ -78,6 +82,7 @@ enum class ClockPeripheral : uint32_t {
 	I2s0 = GCLK_CLKCTRL_ID_I2S_0_Val,
 	I2s1 = GCLK_CLKCTRL_ID_I2S_1_Val
 };
+/// @}
 
 /**
  * Clock management
