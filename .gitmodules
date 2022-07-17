@@ -40,3 +40,6 @@
 [submodule "ext/rp/pico-sdk"]
 	path = ext/rp/pico-sdk
 	url = https://github.com/modm-ext/pico-sdk-partial.git
+[submodule "ext/nanopb/nanopb"]
+	path = ext/nanopb/nanopb
+	url = https://github.com/modm-ext/nanopb-partial.git

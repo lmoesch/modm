@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2021, Lucas Moesch
+#
+# This file is part of the modm project.
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# -----------------------------------------------------------------------------
+import os
+import subprocess
+import tempfile
+
+from pathlib import Path
+
+def init(module):
+    module.name = ":nanopb"
+    module.description = """
+# Nanopb - Protocol Buffers for Embedded Systems
+Nanopb is a small code-size Protocol Buffers implementation in ansi C. It is especially suitable 
+for use in microcontrollers, but fits any memory restricted system.
+"""
+
+def prepare(module, options):
+    module.add_option(
+    PathOption(name="protofile.path", empty_ok=False, absolute=True, description=""))
+
+    return True
+
+def build(env):
+    env.collect(":build:path.include", "modm/ext/nanopb")
+    env.outbasepath = "modm/ext/nanopb"
+
+    env.copy("nanopb/pb_common.c", dest="pb_common.c")
+    env.copy("nanopb/pb_common.h", dest="pb_common.h")
+    env.copy("nanopb/pb_decode.c", dest="pb_decode.c")
+    env.copy("nanopb/pb_decode.h", dest="pb_decode.h")
+    env.copy("nanopb/pb_encode.c", dest="pb_encode.c")
+    env.copy("nanopb/pb_encode.h", dest="pb_encode.h")
+    env.copy("nanopb/pb.h", dest="pb.h")
+
+    # build_protofile(env)
+
+def build_protofile(env):
+    tmpdir = tempfile.mkdtemp(dir=repopath("ext/nanopb"))
+
+    try:
+        protoc = repopath("ext/nanopb/nanopb/generator/protoc")
+        protofile = localpath(env[":nanopb:protofile.path"])
+
+        cmd = ["python", protoc, f"--nanopb_out={tmpdir}", f"--proto_path={os.path.dirname(protofile)}", protofile]
+        subprocess.call(cmd)
+
+        for filename in os.listdir(tmpdir):
+            path = os.path.join(tmpdir, filename)
+
+            with open(path) as f:
+                content=f.read().replace('<pb.h>', '"nanopb/pb.h"')
+
+            with open(path, "w") as f:
+                f.write(content)
+
+            env.copy(path, dest=filename)
+            os.remove(path)
+    except Exception as e:
+        print(e)
+
+    os.rmdir(tmpdir)
