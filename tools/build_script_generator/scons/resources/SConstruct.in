@@ -98,4 +98,10 @@ sources += env.FindSourceFiles(".", ignorePaths=ignored)
 #       <option name="modm:build:scons:include_sconstruct">False</option>
 #   7. Anyone using your project now also benefits from your environment changes.
 
+%% if build_proto
+# Get nanopb protofile sources and build them
+proto_sources = ["{{ proto_source }}"]
+env.BuildNanopbProto(proto_sources)
+%% endif
+
 env.BuildTarget(sources)

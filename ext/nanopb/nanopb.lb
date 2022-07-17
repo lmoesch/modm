@@ -33,6 +33,8 @@ def build(env):
     env.collect(":build:path.include", "modm/ext/nanopb")
     env.outbasepath = "modm/ext/nanopb"
 
+    env.copy("nanopb/generator", dest="generator")
+
     env.copy("nanopb/pb_common.c", dest="pb_common.c")
     env.copy("nanopb/pb_common.h", dest="pb_common.h")
     env.copy("nanopb/pb_decode.c", dest="pb_decode.c")
